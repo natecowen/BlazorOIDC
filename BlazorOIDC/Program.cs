@@ -85,11 +85,12 @@ try
 
             options.AccessDeniedPath = "/access-denied";
 
-            // Absolute expiration enforcement (24 hours)
+            // Phase 9: Token refresh and absolute expiration enforcement
             options.Events = new CookieAuthenticationEvents
             {
                 OnValidatePrincipal = async context =>
                 {
+                    // AC-16, AC-17: Check absolute session lifetime (24 hours)
                     var authTime = context.Properties.IssuedUtc;
                     if (authTime.HasValue)
                     {
@@ -101,6 +102,24 @@ try
                             context.RejectPrincipal();
                             await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
                             Log.Information("Session rejected: absolute expiration exceeded");
+                            return;
+                        }
+                    }
+
+                    // AC-10, AC-11, AC-12, AC-13, AC-14: Token refresh
+                    // Only attempt refresh if tokens exist (OIDC authentication)
+                    if (context.Properties.Items.ContainsKey(".Token.access_token"))
+                    {
+                        var tokenRefreshService = context.HttpContext.RequestServices.GetRequiredService<TokenRefreshService>();
+                        var refreshed = await tokenRefreshService.RefreshTokenIfNeededAsync(context.Principal!, context.Properties);
+
+                        if (!refreshed)
+                        {
+                            // Token refresh failed, reject principal and force re-authentication
+                            context.RejectPrincipal();
+                            await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                            Log.Information("Session rejected: token refresh failed");
+                            return;
                         }
                     }
                 }
@@ -183,6 +202,9 @@ try
 
     // Phase 7: Claims Normalization Service
     builder.Services.AddScoped<ClaimsNormalizationService>();
+
+    // Phase 9: Token Refresh Service
+    builder.Services.AddHttpClient<TokenRefreshService>();
 
     // Add services to the container.
     builder.Services.AddRazorComponents()
