@@ -24,4 +24,10 @@
     <ProjectReference Include="..\BlazorOIDC\BlazorOIDC.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\BlazorOIDC\Configs\**\*.json" Link="Configs\%(RecursiveDir)%(FileName)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

@@ -519,7 +519,7 @@ Each phase produces a working application state. Acceptance criteria (AC) that c
 - Register POCOs with `IOptions<T>` in DI
 - Configure user secrets for `ClientSecret`
 - Configure Serilog with console sink in Program.cs
-- Create NUnit test project and add to solution
+- Create NUnit test project (`BlazorOIDC.Tests`) and add to solution
 
 **Verifiable:** AC-46, AC-47, AC-48, AC-49, AC-50
 

@@ -8,6 +8,8 @@ See `spec.md` for the build specification (what to implement).
 See `architecture.md` for design rationale (why it's built this way).
 See `readme.md` for project overview and setup prerequisites.
 
+Keep your replies extremely concise and focus on conveying the key information. No unnecessary fluff, no long code snippets. 
+
 ## Tech Stack
 
 - .NET 10 (LTS), Blazor Server
