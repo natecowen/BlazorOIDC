@@ -14,6 +14,8 @@ See `readme.md` for project overview and setup prerequisites.
 - Microsoft.AspNetCore.Authentication.OpenIdConnect
 - Microsoft Authentication Builder & Authorization Framework
 - Generic OIDC provider (Keycloak as reference implementation)
+- NUnit for unit testing
+- Serilog (ASP.NET Core console sink)
 
 ## Project Structure
 

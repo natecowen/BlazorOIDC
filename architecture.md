@@ -7,6 +7,38 @@ For *how to get started*, see [readme.md](readme.md).
 
 ---
 
+## Terminology
+
+- Authentication: Who the user is
+- Authorization: What the user can do
+- Claim: A statement about a user
+- Role: A specific type of claim used for authorization
+- Policy: A named authorization rule
+
+
+---
+
+## Threat Model (Simplified)
+
+This application explicitly defends against:
+
+- Token theft via XSS
+- Token leakage via browser storage
+- Session fixation
+- Unauthorized route access
+- Role escalation via client-side manipulation
+
+This application does NOT defend against:
+
+- Compromised Identity Provider
+- Malicious server operators
+- Network-level MITM attacks without HTTPS
+- Authorization bypass in downstream APIs (out of scope)
+
+These constraints are intentional and aligned with Blazor Server’s execution model.
+
+---  
+
 ## Why Cookies, Not Tokens
 
 Blazor Server executes UI logic on the server.

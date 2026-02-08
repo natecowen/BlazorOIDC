@@ -8,4 +8,8 @@
     <UserSecretsId>69faa426-2e97-4201-be6d-24ab9f490c13</UserSecretsId>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+  </ItemGroup>
+
 </Project>

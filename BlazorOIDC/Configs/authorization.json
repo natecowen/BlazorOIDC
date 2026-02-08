@@ -5,6 +5,7 @@
   },
   "Session": {
     "SlidingExpirationMinutes": 30,
-    "AbsoluteExpirationHours": 24
+    "AbsoluteExpirationHours": 24,
+    "ClockSkewMinutes": 2
   }
 }

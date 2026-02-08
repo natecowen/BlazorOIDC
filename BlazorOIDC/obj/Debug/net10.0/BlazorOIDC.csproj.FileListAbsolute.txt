@@ -85,3 +85,15 @@
 /Users/ncowen/repos/Blazor-OIDC/BlazorOIDC/obj/Debug/net10.0/BlazorOIDC.pdb
 /Users/ncowen/repos/Blazor-OIDC/BlazorOIDC/obj/Debug/net10.0/BlazorOIDC.genruntimeconfig.cache
 /Users/ncowen/repos/Blazor-OIDC/BlazorOIDC/obj/Debug/net10.0/ref/BlazorOIDC.dll
+/Users/ncowen/repos/Blazor-OIDC/BlazorOIDC/bin/Debug/net10.0/Microsoft.Extensions.DependencyModel.dll
+/Users/ncowen/repos/Blazor-OIDC/BlazorOIDC/bin/Debug/net10.0/Serilog.dll
+/Users/ncowen/repos/Blazor-OIDC/BlazorOIDC/bin/Debug/net10.0/Serilog.AspNetCore.dll
+/Users/ncowen/repos/Blazor-OIDC/BlazorOIDC/bin/Debug/net10.0/Serilog.Extensions.Hosting.dll
+/Users/ncowen/repos/Blazor-OIDC/BlazorOIDC/bin/Debug/net10.0/Serilog.Extensions.Logging.dll
+/Users/ncowen/repos/Blazor-OIDC/BlazorOIDC/bin/Debug/net10.0/Serilog.Formatting.Compact.dll
+/Users/ncowen/repos/Blazor-OIDC/BlazorOIDC/bin/Debug/net10.0/Serilog.Settings.Configuration.dll
+/Users/ncowen/repos/Blazor-OIDC/BlazorOIDC/bin/Debug/net10.0/Serilog.Sinks.Console.dll
+/Users/ncowen/repos/Blazor-OIDC/BlazorOIDC/bin/Debug/net10.0/Serilog.Sinks.Debug.dll
+/Users/ncowen/repos/Blazor-OIDC/BlazorOIDC/bin/Debug/net10.0/Serilog.Sinks.File.dll
+/Users/ncowen/repos/Blazor-OIDC/BlazorOIDC/obj/Debug/net10.0/BlazorOIDC.csproj.AssemblyReference.cache
+/Users/ncowen/repos/Blazor-OIDC/BlazorOIDC/obj/Debug/net10.0/BlazorOIDC.csproj.Up2Date

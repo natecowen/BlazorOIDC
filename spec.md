@@ -16,6 +16,8 @@ For design rationale and developer guidance, see [architecture.md](architecture.
 - **Microsoft Authorization Framework**
 - **Generic OpenID Connect provider**
   - Keycloak used as the reference implementation
+- **Nunit for unit testing**
+- **Serilog Asp.Net Core - Console Logging**
 
 ---
 
@@ -33,6 +35,32 @@ All authentication state lives:
 
 - In the ASP.NET authentication cookie
 - In server memory during request execution
+
+The authentication cookie MUST be configured with:
+
+- HttpOnly = true
+- SecurePolicy = Always (except local HTTP dev)
+- SameSite = Lax (or None with Secure for cross-site IdP redirects)
+- IsEssential = true
+- Cookie name must be application-specific (not default)
+
+If token size causes cookie chunking, chunking MUST be enabled and tested.
+
+
+### Authentication Observability
+
+The application MUST:
+
+- Log authentication failures at Warning level
+- Log token refresh failures with reason (never token contents)
+- Log forced re-authentication events
+- Never log raw tokens, refresh tokens, or authorization codes
+
+Recommended structured log fields:
+- User ID (if known)
+- Authentication scheme
+- Failure reason
+- Correlation ID
 
 ---
 
@@ -80,6 +108,7 @@ Refresh tokens are stored **server-side only**, in the authentication properties
 - No retry logic — a single failed refresh attempt rejects the session
 - Refresh must not extend the session beyond the 24-hour absolute lifetime
 - Never trust a refresh response without validating the new ID token
+- Token expiry checks MUST allow a configurable clock skew (default: 2 minutes); tokens nearing expiry within the skew window are refreshed proactively
 
 ### 3.4 Session Lifetime
 
@@ -87,6 +116,7 @@ Refresh tokens are stored **server-side only**, in the authentication properties
 - Sliding window duration is **configurable** (default: 30 minutes)
 - Absolute maximum session lifetime: **24 hours**
 - After 24 hours, user must re-authenticate regardless of activity
+- Token clock skew window: **configurable** (default: 2 minutes) — tokens within this window of expiry are treated as expired for refresh purposes
 
 ---
 
@@ -190,6 +220,10 @@ Role hierarchy (conceptual):
 - Admin ⇒ Edit ⇒ View
 
 Hierarchy is enforced via policies, not implicit role inheritance.
+
+All role hierarchy rules MUST be defined in a single authorization policy registration section.
+No page or component may implement role hierarchy logic directly.
+
 
 ### 6.3 Policies
 
@@ -309,7 +343,8 @@ Each file is loaded explicitly via `ConfigurationBuilder.AddJsonFile()` in Progr
   },
   "Session": {
     "SlidingExpirationMinutes": 30,
-    "AbsoluteExpirationHours": 24
+    "AbsoluteExpirationHours": 24,
+    "ClockSkewMinutes": 2
   }
 }
 ```
@@ -386,6 +421,8 @@ Each criterion is a testable statement that defines "done" for a feature area.
 - AC-12: When the refresh token is invalid or revoked, the user is forced to re-authenticate on their next request
 - AC-13: When the IdP is unreachable during a refresh attempt, the user is forced to re-authenticate
 - AC-14: When the IdP returns an invalid ID token during a refresh (bad signature, wrong issuer, expired), the session is rejected and the user must re-authenticate
+- AC-51: Token expiry checks use the configurable clock skew value (default: 2 minutes)
+- AC-52: Tokens within the clock skew window of expiry are proactively refreshed before actual expiry
 
 ### 10.4 Session Lifetime
 
@@ -447,6 +484,27 @@ Each criterion is a testable statement that defines "done" for a feature area.
 - AC-49: Environment variables override all other configuration sources
 - AC-50: The `ClientSecret` is never present in any config file committed to source control
 
+### 10.12 Cookie Configuration
+
+- AC-53: The authentication cookie has `HttpOnly = true`
+- AC-54: The authentication cookie uses `SecurePolicy = Always` (except local HTTP development)
+- AC-55: The authentication cookie has `SameSite = Lax`
+- AC-56: The authentication cookie is marked as essential (`IsEssential = true`)
+- AC-57: The authentication cookie has an application-specific name (not the framework default)
+- AC-58: If token size causes cookie chunking, chunking is enabled and functional
+
+### 10.13 Authentication Observability
+
+- AC-59: Authentication failures are logged at Warning level
+- AC-60: Token refresh failures are logged with reason but never with token contents
+- AC-61: Forced re-authentication events are logged
+- AC-62: Raw tokens, refresh tokens, and authorization codes never appear in log output
+
+### 10.14 Testing
+
+- AC-63: Unit tests exist covering claims normalization, authorization policy evaluation, and token refresh logic
+- AC-64: All unit tests pass
+
 ---
 
 ## 11. Implementation Order
@@ -460,6 +518,8 @@ Each phase produces a working application state. Acceptance criteria (AC) that c
 - Load config files in Program.cs via `ConfigurationBuilder.AddJsonFile()`
 - Register POCOs with `IOptions<T>` in DI
 - Configure user secrets for `ClientSecret`
+- Configure Serilog with console sink in Program.cs
+- Create NUnit test project and add to solution
 
 **Verifiable:** AC-46, AC-47, AC-48, AC-49, AC-50
 
@@ -469,8 +529,10 @@ Each phase produces a working application state. Acceptance criteria (AC) that c
 - Create the `/dev-login` page with role picker (View, Edit, Admin), gated by `IsDevelopment()`
 - On form submission, create a `ClaimsPrincipal` with the selected role as a `ClaimTypes.Role` claim and issue a cookie
 - Add development-only warning banner to the dev login page
+- Configure authentication cookie: HttpOnly, SecurePolicy, SameSite=Lax, IsEssential, application-specific name
+- Enable cookie chunking for large token payloads
 
-**Verifiable:** AC-40, AC-41, AC-42, AC-43, AC-44, AC-45
+**Verifiable:** AC-40, AC-41, AC-42, AC-43, AC-44, AC-45, AC-53, AC-54, AC-55, AC-56, AC-57, AC-58
 
 ### Phase 3: Authorization Policies
 
@@ -525,8 +587,9 @@ Each phase produces a working application state. Acceptance criteria (AC) that c
 - Scopes must include `offline_access` to receive a refresh token from the IdP
 - Wire the claims normalization handler from Phase 7 into the OIDC events
 - Unauthenticated users requesting protected routes trigger an OIDC challenge
+- Log authentication failures at Warning level (never raw tokens)
 
-**Verifiable:** AC-1, AC-2, AC-3, AC-4, AC-5
+**Verifiable:** AC-1, AC-2, AC-3, AC-4, AC-5, AC-59
 
 ### Phase 9: Token Refresh & Session Lifetime
 
@@ -535,8 +598,10 @@ Each phase produces a working application state. Acceptance criteria (AC) that c
 - Configure sliding expiration from `Session.SlidingExpirationMinutes`
 - Configure absolute expiration from `Session.AbsoluteExpirationHours`
 - Ensure refresh does not extend past the absolute lifetime
+- Use `ClockSkewMinutes` for proactive token refresh within the skew window
+- Log token refresh failures with reason and forced re-auth events (never token contents)
 
-**Verifiable:** AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16, AC-17, AC-18
+**Verifiable:** AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16, AC-17, AC-18, AC-51, AC-52, AC-60, AC-61, AC-62
 
 ### Phase 10: Logout Flow
 
@@ -546,6 +611,14 @@ Each phase produces a working application state. Acceptance criteria (AC) that c
 - Verify logout works with both the dev login bypass and real OIDC
 
 **Verifiable:** AC-6, AC-7, AC-8, AC-9
+
+### Phase 11: Unit Testing
+
+- Create unit tests for claims normalization (flat and nested role paths)
+- Create unit tests for authorization policy evaluation (role hierarchy)
+- Create unit tests for token refresh logic (expiry check, clock skew, failure handling)
+
+**Verifiable:** AC-63, AC-64
 
 ---
 
