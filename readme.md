@@ -125,3 +125,4 @@ Do you need more information to create me a technical specification document whi
     - AuthorizeRouteView - Combines the behaviors of AuthorizeView and RouteView, so that it displays the page matching the specified route but only if the user is authorized to see it.
     - AuthorizeView - Selectively display UI depending on whether the user is authorized. 
     - Role-based and policy-based authorization
+- [OAuth 2.0 Playground will help you understand the OAuth authorization flows](https://www.oauth.com/playground/)

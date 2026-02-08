@@ -1,7 +1,7 @@
 {
   "Oidc": {
-    "Authority": "",
-    "ClientId": "",
+    "Authority": "https://my-oidc-provider",
+    "ClientId": "blazor-oidc-client",
     "Scopes": ["openid", "profile", "roles", "offline_access"],
     "CallbackPath": "/signin-oidc",
     "SignedOutCallbackPath": "/signout-callback-oidc"

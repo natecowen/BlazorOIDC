@@ -4,6 +4,8 @@ using BlazorOIDC.Configuration;
 using BlazorOIDC.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.Extensions.Options;
 using Serilog;
 
 // Bootstrap Serilog early for startup logging
@@ -101,6 +103,58 @@ try
                             Log.Information("Session rejected: absolute expiration exceeded");
                         }
                     }
+                }
+            };
+        })
+        // Phase 8: OpenID Connect Authentication
+        .AddOpenIdConnect(options =>
+        {
+            var oidcOptions = builder.Configuration.GetSection("Oidc").Get<OidcOptions>() ?? new OidcOptions();
+            var clientSecret = builder.Configuration["Oidc:ClientSecret"];
+
+            // AC-1, AC-2: Configure OIDC endpoints and client
+            options.Authority = oidcOptions.Authority;
+            options.ClientId = oidcOptions.ClientId;
+            options.ClientSecret = clientSecret ?? string.Empty;
+
+            // AC-5: Scopes include offline_access for refresh token
+            options.Scope.Clear();
+            foreach (var scope in oidcOptions.Scopes)
+            {
+                options.Scope.Add(scope);
+            }
+
+            // Callback paths
+            options.CallbackPath = oidcOptions.CallbackPath;
+            options.SignedOutCallbackPath = oidcOptions.SignedOutCallbackPath;
+
+            // AC-3, AC-4: Authorization Code Flow with PKCE and token storage
+            options.ResponseType = "code";
+            options.UsePkce = true;
+            options.SaveTokens = true; // Required for token refresh (AC-10)
+
+            // Ensure cookies store tokens in authentication properties
+            options.GetClaimsFromUserInfoEndpoint = false; // We'll normalize manually via OnTokenValidated
+
+            // AC-59: Log authentication failures at Warning level
+            options.Events = new OpenIdConnectEvents
+            {
+                OnTokenValidated = async context =>
+                {
+                    // Phase 7: Wire claims normalization
+                    var normalizationService = context.HttpContext.RequestServices.GetRequiredService<ClaimsNormalizationService>();
+                    normalizationService.NormalizeRoleClaims(context.Principal!);
+                    await Task.CompletedTask;
+                },
+                OnAuthenticationFailed = context =>
+                {
+                    Log.Warning("OIDC authentication failed: {Exception}", context.Exception?.Message ?? "Unknown error");
+                    return Task.CompletedTask;
+                },
+                OnRemoteFailure = context =>
+                {
+                    Log.Warning("OIDC remote failure: {Failure}", context.Failure?.Message ?? "Unknown error");
+                    return Task.CompletedTask;
                 }
             };
         });
