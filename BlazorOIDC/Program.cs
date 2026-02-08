@@ -104,7 +104,27 @@ try
             };
         });
 
-    builder.Services.AddAuthorization();
+    // Phase 3: Authorization Policies
+    builder.Services.AddAuthorization(options =>
+    {
+        // AC-23, AC-24: CanView requires View, Edit, or Admin
+        options.AddPolicy("CanView", policy =>
+            policy.RequireAssertion(context =>
+                context.User.HasClaim(ClaimTypes.Role, "View") ||
+                context.User.HasClaim(ClaimTypes.Role, "Edit") ||
+                context.User.HasClaim(ClaimTypes.Role, "Admin")));
+
+        // AC-25, AC-26: CanEdit requires Edit or Admin
+        options.AddPolicy("CanEdit", policy =>
+            policy.RequireAssertion(context =>
+                context.User.HasClaim(ClaimTypes.Role, "Edit") ||
+                context.User.HasClaim(ClaimTypes.Role, "Admin")));
+
+        // AC-27: IsAdmin requires Admin
+        options.AddPolicy("IsAdmin", policy =>
+            policy.RequireAssertion(context =>
+                context.User.HasClaim(ClaimTypes.Role, "Admin")));
+    });
 
     // Add services to the container.
     builder.Services.AddRazorComponents()
