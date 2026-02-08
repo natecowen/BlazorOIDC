@@ -1,9 +1,0 @@
-{
-  "Oidc": {
-    "Authority": "",
-    "ClientId": "",
-    "Scopes": ["openid", "profile", "roles", "offline_access"],
-    "CallbackPath": "/signin-oidc",
-    "SignedOutCallbackPath": "/signout-callback-oidc"
-  }
-}
