@@ -206,7 +206,8 @@ try
     // Phase 9: Token Refresh Service
     builder.Services.AddHttpClient<TokenRefreshService>();
 
-    // Add services to the container.
+    // Add services to the container
+    builder.Services.AddControllers();
     builder.Services.AddRazorComponents()
         .AddInteractiveServerComponents();
 
@@ -229,118 +230,9 @@ try
     app.UseAntiforgery();
 
     app.MapStaticAssets();
+    app.MapControllers();
     app.MapRazorComponents<App>()
         .AddInteractiveServerRenderMode();
-
-    // Phase 5: Login endpoint (AC-35)
-    app.MapPost("/login", async (HttpContext context) =>
-    {
-        if (app.Environment.IsDevelopment())
-        {
-            // In development, redirect to dev-login page
-            context.Response.Redirect("/dev-login");
-        }
-        else
-        {
-            // In production, trigger OIDC challenge
-            await context.ChallengeAsync("OpenIdConnect", new AuthenticationProperties
-            {
-                RedirectUri = "/"
-            });
-        }
-    }).DisableAntiforgery();
-
-    // Phase 5, Phase 10: Logout endpoint (AC-6, AC-36, AC-8, AC-9)
-    app.MapPost("/logout", async (HttpContext context, IOptions<OidcOptions> oidcOptions) =>
-    {
-        // AC-6: Clear the local authentication cookie
-        await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        Log.Information("User logged out");
-
-        var oidcOpts = oidcOptions.Value;
-
-        // AC-8, AC-9: Check if user authenticated via OIDC (has id_token) and IdP end-session is configured
-        // Dev-login sessions won't have id_token, so they'll skip end-session
-        var hasIdToken = context.User.FindFirst("id_token") != null;
-        if (hasIdToken && !string.IsNullOrWhiteSpace(oidcOpts.Authority))
-        {
-            try
-            {
-                // Construct the end-session endpoint URL (standard OIDC convention)
-                var endSessionEndpoint = $"{oidcOpts.Authority.TrimEnd('/')}/protocol/openid-connect/logout";
-
-                // Build the post_logout_redirect_uri parameter
-                var scheme = context.Request.Scheme;
-                var host = context.Request.Host;
-                var redirectUri = $"{scheme}://{host}/";
-
-                // Redirect to IdP end-session endpoint
-                var logoutUrl = $"{endSessionEndpoint}?post_logout_redirect_uri={Uri.EscapeDataString(redirectUri)}";
-                context.Response.Redirect(logoutUrl);
-                return;
-            }
-            catch (Exception ex)
-            {
-                // AC-9: If end-session fails or is not configured, silently redirect to home
-                Log.Warning(ex, "Failed to construct end-session URL, redirecting to home");
-            }
-        }
-
-        // AC-9: If IdP end-session endpoint is not configured or user used dev-login, redirect directly to home
-        context.Response.Redirect("/");
-    }).DisableAntiforgery();
-
-    // Phase 10: Signed-out callback endpoint (handles redirect from IdP end-session)
-    app.MapGet("/signout-callback-oidc", (HttpContext context) =>
-    {
-        // IdP has confirmed logout, redirect to home
-        context.Response.Redirect("/");
-        return Task.CompletedTask;
-    });
-
-    // AC-43: Dev login endpoint (development only)
-    if (app.Environment.IsDevelopment())
-    {
-        app.MapPost("/api/dev-login", async (HttpContext context) =>
-        {
-            var form = await context.Request.ReadFormAsync();
-            var role = form["role"].ToString();
-
-            if (string.IsNullOrEmpty(role))
-            {
-                role = "View";
-            }
-
-            // Create claims for the selected role
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, $"dev-user-{Guid.NewGuid():N}"),
-                new Claim(ClaimTypes.Name, $"Dev User ({role})"),
-                new Claim(ClaimTypes.Role, role),
-                new Claim("auth_mode", "development_bypass"),
-                new Claim("auth_time", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString())
-            };
-
-            var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-            var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);
-
-            // Sign in and issue cookie
-            await context.SignInAsync(
-                CookieAuthenticationDefaults.AuthenticationScheme,
-                claimsPrincipal,
-                new AuthenticationProperties
-                {
-                    IsPersistent = false,
-                    IssuedUtc = DateTimeOffset.UtcNow,
-                    AllowRefresh = true
-                });
-
-            Log.Information("Dev login: User authenticated with role {Role}", role);
-
-            // Redirect to home page
-            context.Response.Redirect("/");
-        }).DisableAntiforgery(); // Dev-only endpoint, antiforgery not needed
-    }
 
     app.Run();
 }
