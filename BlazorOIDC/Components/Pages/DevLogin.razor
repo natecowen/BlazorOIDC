@@ -1,0 +1,68 @@
+@page "/dev-login"
+@inject IWebHostEnvironment Environment
+
+@if (!Environment.IsDevelopment())
+{
+    <PageTitle>Not Found</PageTitle>
+    <h1>404 - Not Found</h1>
+}
+else
+{
+    <PageTitle>Development Login</PageTitle>
+
+    <div class="container mt-5">
+        <!-- AC-44: Development warning banner -->
+        <div class="alert alert-warning border-warning" role="alert">
+            <h4 class="alert-heading">
+                ⚠️ Development Mode Only
+            </h4>
+            <p>
+                This login bypass is <strong>only available in development</strong>.
+                In production, authentication is handled by the configured OpenID Connect provider.
+            </p>
+            <hr>
+            <p class="mb-0">
+                This route will return 404 when <code>IHostEnvironment.IsDevelopment()</code> is false.
+            </p>
+        </div>
+
+        <!-- AC-42: Role picker form -->
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">Development Login - Select Role</h3>
+            </div>
+            <div class="card-body">
+                <form method="post" action="/api/dev-login">
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Choose a role to authenticate as:</label>
+
+                        <div class="form-check mb-2">
+                            <input type="radio" class="form-check-input" name="role" value="View" id="roleView" checked />
+                            <label class="form-check-label" for="roleView">
+                                <strong>View</strong> - Base-level access (can view protected content)
+                            </label>
+                        </div>
+
+                        <div class="form-check mb-2">
+                            <input type="radio" class="form-check-input" name="role" value="Edit" id="roleEdit" />
+                            <label class="form-check-label" for="roleEdit">
+                                <strong>Edit</strong> - Modification access (can view and edit)
+                            </label>
+                        </div>
+
+                        <div class="form-check mb-2">
+                            <input type="radio" class="form-check-input" name="role" value="Admin" id="roleAdmin" />
+                            <label class="form-check-label" for="roleAdmin">
+                                <strong>Admin</strong> - Full administrative access
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        Login with Selected Role
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+}
