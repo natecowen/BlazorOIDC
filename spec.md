@@ -617,6 +617,7 @@ Each phase produces a working application state. Acceptance criteria (AC) that c
 - Create unit tests for claims normalization (flat and nested role paths)
 - Create unit tests for authorization policy evaluation (role hierarchy)
 - Create unit tests for token refresh logic (expiry check, clock skew, failure handling)
+- Create unit tests for controllers
 
 **Verifiable:** AC-63, AC-64
 
