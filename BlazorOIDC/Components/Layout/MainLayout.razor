@@ -7,7 +7,23 @@
 
     <main>
         <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            <AuthorizeView>
+                <Authorized>
+                    <span>Welcome, <strong>@context.User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value</strong></span>
+                    @{
+                        var role = context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Unknown";
+                    }
+                    <span>Role: <strong>@role</strong></span>
+                    <form method="post" action="/logout" style="display: inline;">
+                        <button type="submit" class="btn btn-link">Logout</button>
+                    </form>
+                </Authorized>
+                <NotAuthorized>
+                    <form method="post" action="/login" style="display: inline;">
+                        <button type="submit" class="btn btn-link">Login</button>
+                    </form>
+                </NotAuthorized>
+            </AuthorizeView>
         </div>
 
         <article class="content px-4">

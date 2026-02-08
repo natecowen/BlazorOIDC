@@ -152,6 +152,32 @@ try
     app.MapRazorComponents<App>()
         .AddInteractiveServerRenderMode();
 
+    // Phase 5: Login endpoint (AC-35)
+    app.MapPost("/login", async (HttpContext context) =>
+    {
+        if (app.Environment.IsDevelopment())
+        {
+            // In development, redirect to dev-login page
+            context.Response.Redirect("/dev-login");
+        }
+        else
+        {
+            // In production, trigger OIDC challenge
+            await context.ChallengeAsync("OpenIdConnect", new AuthenticationProperties
+            {
+                RedirectUri = "/"
+            });
+        }
+    }).DisableAntiforgery();
+
+    // Phase 5: Logout endpoint (AC-6, AC-36)
+    app.MapPost("/logout", async (HttpContext context) =>
+    {
+        await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        Log.Information("User logged out");
+        context.Response.Redirect("/");
+    }).DisableAntiforgery();
+
     // AC-43: Dev login endpoint (development only)
     if (app.Environment.IsDevelopment())
     {
