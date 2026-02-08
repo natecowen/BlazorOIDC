@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using BlazorOIDC.Components;
 using BlazorOIDC.Configuration;
+using BlazorOIDC.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Serilog;
@@ -125,6 +126,9 @@ try
             policy.RequireAssertion(context =>
                 context.User.HasClaim(ClaimTypes.Role, "Admin")));
     });
+
+    // Phase 7: Claims Normalization Service
+    builder.Services.AddScoped<ClaimsNormalizationService>();
 
     // Add services to the container.
     builder.Services.AddRazorComponents()
