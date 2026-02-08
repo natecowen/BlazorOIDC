@@ -1,4 +1,4 @@
-namespace BlazorOIDC.Configuration;
+namespace BlazorOIDC.Models;
 
 public class SessionConfig
 {

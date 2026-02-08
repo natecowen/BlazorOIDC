@@ -31,10 +31,22 @@ Blazor-OIDC/
 │   │   ├── Routes.razor         # Routing
 │   │   ├── _Imports.razor       # Global usings
 │   │   ├── Layout/              # MainLayout, NavMenu, ReconnectModal
-│   │   └── Pages/               # Home, Counter, Weather, Error, NotFound
+│   │   └── Pages/               # Home, Protected, Admin, Claims, DevLogin, AccessDenied
+│   ├── Controllers/             # API endpoints (Auth, DevLogin)
+│   ├── Models/                  # Configuration models (AuthorizationConfig, OidcOptions, SessionConfig)
+│   ├── Services/                # Business logic services (ClaimsNormalizationService, TokenRefreshService)
+│   ├── Configs/                 # JSON configuration files (oidc.json, authorization.json)
 │   ├── Properties/
 │   │   └── launchSettings.json  # Dev: https://localhost:7064
 │   └── wwwroot/                 # Static assets (Bootstrap, CSS)
+├── BlazorOIDC.Tests/            # Unit tests (NUnit with Moq)
+│   ├── BlazorOIDC.Tests.csproj
+│   ├── AuthControllerTests.cs
+│   ├── AuthorizationPolicyTests.cs
+│   ├── ClaimsNormalizationTests.cs
+│   ├── ConfigurationTests.cs
+│   ├── DevLoginControllerTests.cs
+│   └── TokenRefreshTests.cs
 ├── BlazorOIDC.slnx              # Solution file
 ├── spec.md                      # Build specification (what to implement)
 ├── architecture.md              # Design rationale (why)
@@ -70,6 +82,18 @@ dotnet run --project BlazorOIDC/BlazorOIDC.csproj --launch-profile https
 - **Roles**: View, Edit, Admin (hierarchy: Admin > Edit > View, enforced via policies)
 - **Claims normalization** happens once at authentication time
 - **Silent token refresh** with 24-hour absolute session lifetime
+
+## Folder Organization
+
+- **Models/** — Configuration and data transfer objects (e.g., `AuthorizationConfig`, `OidcOptions`, `SessionConfig`)
+  - All configuration classes that are bound to strongly-typed POCOs via `IOptions<T>`
+  - Use this folder for any models that represent structured configuration or cross-cutting concerns
+- **Controllers/** — API endpoints and request handlers (traditional ASP.NET controller pattern)
+  - Use for HTTP endpoints that are not Razor components
+- **Services/** — Business logic and integration services (e.g., `ClaimsNormalizationService`, `TokenRefreshService`)
+  - Stateless services registered in DI for cross-cutting concerns
+- **Components/** — Blazor components (pages and layout components)
+- **Configs/** — JSON configuration files (oidc.json, authorization.json)
 
 ## Security Rules
 

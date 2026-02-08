@@ -1,6 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using BlazorOIDC.Configuration;
+using BlazorOIDC.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 

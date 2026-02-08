@@ -1,6 +1,6 @@
 using System.Security.Claims;
 using BlazorOIDC.Components;
-using BlazorOIDC.Configuration;
+using BlazorOIDC.Models;
 using BlazorOIDC.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;

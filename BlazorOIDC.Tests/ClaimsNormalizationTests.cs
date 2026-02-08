@@ -1,6 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json;
-using BlazorOIDC.Configuration;
+using BlazorOIDC.Models;
 using BlazorOIDC.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;

@@ -1,6 +1,6 @@
 using System.Security.Claims;
 using BlazorOIDC.Controllers;
-using BlazorOIDC.Configuration;
+using BlazorOIDC.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;

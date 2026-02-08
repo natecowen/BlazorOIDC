@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
-using BlazorOIDC.Configuration;
+using BlazorOIDC.Models;
 
 namespace BlazorOIDC.Controllers;
 

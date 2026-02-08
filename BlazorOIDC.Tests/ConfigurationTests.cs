@@ -1,4 +1,4 @@
-using BlazorOIDC.Configuration;
+using BlazorOIDC.Models;
 using Microsoft.Extensions.Configuration;
 
 namespace BlazorOIDC.Tests;

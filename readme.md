@@ -118,6 +118,17 @@ Do you need more information to create me a technical specification document whi
 
 ---
 
+## See Code Coverage - WIP. 
+
+- Add coverlet to the test project: `dotnet add package coverlet.collector` 
+- Run test and collect coverage: `dotnet test --collect:"XPlat Code Coverage"`
+- Run the report generator: `reportgenerator -reports:./TestResults/{guid}/coverage.cobertura.xml -targetdir:TestResults -reporttypes:Html`
+
+> You may need to install the report generator with `dotnet tool install --global dotnet-reportgenerator-globaltool --version 5.5.1` and then add the dotnet tools to your path. For a MAC, run `export PATH=$PATH:$HOME/.dotnet/tools` and then `source ~/.zshrc`
+
+
+
+---
 ## Helpful Links
 
 - [Blazor Security Overview](https://learn.microsoft.com/en-us/aspnet/core/blazor/security/?view=aspnetcore-10.0&tabs=visual-studio)
