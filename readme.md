@@ -115,3 +115,13 @@ Do you need more information to create me a technical specification document whi
 ```
 
 </details>
+
+---
+
+## Helpful Links
+
+- [Blazor Security Overview](https://learn.microsoft.com/en-us/aspnet/core/blazor/security/?view=aspnetcore-10.0&tabs=visual-studio)
+  - Good to know items from that page: 
+    - AuthorizeRouteView - Combines the behaviors of AuthorizeView and RouteView, so that it displays the page matching the specified route but only if the user is authorized to see it.
+    - AuthorizeView - Selectively display UI depending on whether the user is authorized. 
+    - Role-based and policy-based authorization

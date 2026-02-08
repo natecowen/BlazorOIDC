@@ -1,0 +1,93 @@
+@page "/claims"
+@attribute [Authorize]
+@using System.Security.Claims
+
+<PageTitle>Claims</PageTitle>
+
+<h1>User Claims</h1>
+
+<AuthorizeView>
+    <Authorized>
+        <!-- Grouped Summary Section -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Identity</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Name:</strong> @context.User.FindFirst(ClaimTypes.Name)?.Value</p>
+                <p><strong>Email:</strong> @(context.User.FindFirst(ClaimTypes.Email)?.Value ?? "Not available")</p>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Roles</h5>
+            </div>
+            <div class="card-body">
+                @{
+                    var roles = context.User.FindAll(ClaimTypes.Role);
+                    if (roles.Any())
+                    {
+                        <ul>
+                            @foreach (var role in roles)
+                            {
+                                <li>@role.Value</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p>No roles assigned</p>
+                    }
+                }
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Token Metadata</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Issuer:</strong> @(context.User.FindFirst("iss")?.Value ?? context.User.FindFirst(ClaimTypes.NameIdentifier)?.Issuer ?? "Not available")</p>
+                <p><strong>Expiry:</strong> @{
+                    var expClaim = context.User.FindFirst(ClaimTypes.Expiration);
+                    if (expClaim != null && long.TryParse(expClaim.Value, out var expSeconds))
+                    {
+                        var expDate = DateTimeOffset.FromUnixTimeSeconds(expSeconds);
+                        @expDate.ToString("O")
+                    }
+                    else
+                    {
+                        @("Not available")
+                    }
+                }</p>
+            </div>
+        </div>
+
+        <!-- Raw Claims Table -->
+        <div class="card">
+            <div class="card-header">
+                <h5>All Claims</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-striped table-sm">
+                    <thead>
+                        <tr>
+                            <th>Claim Type</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var claim in context.User.Claims.OrderBy(c => c.Type))
+                        {
+                            <tr>
+                                <td>@claim.Type</td>
+                                <td>@claim.Value</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </Authorized>
+</AuthorizeView>
