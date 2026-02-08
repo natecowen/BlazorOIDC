@@ -1,0 +1,9 @@
+@page "/protected"
+@attribute [Authorize(Policy = "CanView")]
+
+<PageTitle>Protected Page</PageTitle>
+
+<h1>Protected Page</h1>
+
+<p>This page is protected by the <code>CanView</code> policy.</p>
+<p>Only users with View, Edit, or Admin roles can access this page.</p>

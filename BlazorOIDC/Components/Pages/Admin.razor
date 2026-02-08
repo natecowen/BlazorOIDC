@@ -1,0 +1,9 @@
+@page "/admin"
+@attribute [Authorize(Policy = "IsAdmin")]
+
+<PageTitle>Admin Page</PageTitle>
+
+<h1>Admin Page</h1>
+
+<p>This page is protected by the <code>IsAdmin</code> policy.</p>
+<p>Only users with the Admin role can access this page.</p>
