@@ -163,6 +163,41 @@ public class ClaimsNormalizationTests
     }
 
     /// <summary>
+    /// Calling NormalizeRoleClaims twice should not duplicate roles
+    /// </summary>
+    [Test]
+    public void NormalizeRoleClaims_IsIdempotent()
+    {
+        // Arrange
+        _authConfig.RoleClaimSource = "IdToken";
+        _authConfig.RoleClaimPath = "realm_access.roles";
+
+        var service = CreateService();
+
+        var tokenJson = JsonSerializer.Serialize(new
+        {
+            realm_access = new { roles = new[] { "View", "Admin" } }
+        });
+
+        var claims = new List<Claim>
+        {
+            new Claim("id_token", tokenJson)
+        };
+        var identity = new ClaimsIdentity(claims);
+        var principal = new ClaimsPrincipal(identity);
+
+        // Act — call twice to simulate refresh
+        service.NormalizeRoleClaims(principal);
+        service.NormalizeRoleClaims(principal);
+
+        // Assert — should still have exactly 2 role claims, not 4
+        var roleClaims = principal.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+        Assert.That(roleClaims.Count, Is.EqualTo(2));
+        Assert.That(roleClaims, Does.Contain("View"));
+        Assert.That(roleClaims, Does.Contain("Admin"));
+    }
+
+    /// <summary>
     /// AC-19: Handle single role as string (not array)
     /// </summary>
     [Test]

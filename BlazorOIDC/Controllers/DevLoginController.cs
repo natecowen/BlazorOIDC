@@ -38,8 +38,9 @@ public class DevLoginController : ControllerBase
             return NotFound();
         }
 
-        // Default to View role if not specified
-        if (string.IsNullOrEmpty(role))
+        // Whitelist valid roles
+        string[] allowedRoles = ["View", "Edit", "Admin"];
+        if (string.IsNullOrEmpty(role) || !allowedRoles.Contains(role, StringComparer.OrdinalIgnoreCase))
         {
             role = "View";
         }

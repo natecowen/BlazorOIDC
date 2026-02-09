@@ -48,6 +48,12 @@ public class ClaimsNormalizationService
 
         var roles = ExtractRolesFromClaim(sourceClaim.Value);
 
+        // Remove existing role claims to avoid duplicates on refresh
+        foreach (var existing in identity.FindAll(ClaimTypes.Role).ToList())
+        {
+            identity.RemoveClaim(existing);
+        }
+
         foreach (var role in roles)
         {
             if (!string.IsNullOrWhiteSpace(role))

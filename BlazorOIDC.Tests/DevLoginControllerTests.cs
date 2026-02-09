@@ -213,6 +213,37 @@ public class DevLoginControllerTests
     }
 
     /// <summary>
+    /// Invalid role should default to View
+    /// </summary>
+    [Test]
+    public async Task Login_WithInvalidRole_DefaultsToView()
+    {
+        // Arrange
+        _mockEnvironment.Setup(e => e.EnvironmentName).Returns("Development");
+        var mockAuthService = new Mock<IAuthenticationService>();
+
+        _mockHttpContext.Setup(x => x.RequestServices.GetService(typeof(IAuthenticationService)))
+            .Returns(mockAuthService.Object);
+
+        var controller = CreateController();
+
+        // Act
+        var result = await controller.Login("SuperUser");
+
+        // Assert
+        Assert.That(result, Is.InstanceOf<RedirectResult>());
+
+        mockAuthService.Verify(
+            x => x.SignInAsync(
+                It.IsAny<HttpContext>(),
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                It.Is<ClaimsPrincipal>(p =>
+                    p.FindFirst(ClaimTypes.Role) != null && p.FindFirst(ClaimTypes.Role)!.Value == "View"),
+                It.IsAny<AuthenticationProperties>()),
+            Times.Once);
+    }
+
+    /// <summary>
     /// AC-43: Dev login redirects to home after authentication
     /// </summary>
     [Test]

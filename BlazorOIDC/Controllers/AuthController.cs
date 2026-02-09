@@ -52,13 +52,16 @@ public class AuthController : ControllerBase
     [HttpPost("logout")]
     public async Task<IActionResult> Logout()
     {
+        // AC-8, AC-9: Check if user authenticated via OIDC (has id_token) and IdP end-session is configured
+        // Dev-login sessions won't have id_token, so they'll skip end-session
+        // Must retrieve token BEFORE signing out (SignOutAsync clears the cookie)
+        var idToken = await HttpContext.GetTokenAsync("id_token");
+
         // AC-6: Clear the local authentication cookie
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         _logger.LogInformation("User logged out");
 
-        // AC-8, AC-9: Check if user authenticated via OIDC (has id_token) and IdP end-session is configured
-        // Dev-login sessions won't have id_token, so they'll skip end-session
-        var hasIdToken = User.FindFirst("id_token") != null;
+        var hasIdToken = idToken != null;
         if (hasIdToken && !string.IsNullOrWhiteSpace(_oidcOptions.Authority))
         {
             try

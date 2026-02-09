@@ -167,18 +167,20 @@ public class AuthControllerTests
         var controller = CreateController();
         var mockAuthService = new Mock<IAuthenticationService>();
 
+        // Mock AuthenticateAsync to return properties containing an id_token
+        // (GetTokenAsync is an extension that calls AuthenticateAsync internally)
+        var properties = new AuthenticationProperties();
+        properties.StoreTokens([new AuthenticationToken { Name = "id_token", Value = "test-token-value" }]);
+
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, "testuser") }, "test"));
+        _mockHttpContext.Setup(x => x.User).Returns(principal);
+
+        mockAuthService
+            .Setup(x => x.AuthenticateAsync(_mockHttpContext.Object, It.IsAny<string>()))
+            .ReturnsAsync(AuthenticateResult.Success(new AuthenticationTicket(principal, properties, "Cookies")));
+
         _mockHttpContext.Setup(x => x.RequestServices.GetService(typeof(IAuthenticationService)))
             .Returns(mockAuthService.Object);
-
-        // User has id_token (OIDC authenticated)
-        var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.Name, "testuser"),
-            new Claim("id_token", "test-token-value")
-        };
-        var identity = new ClaimsIdentity(claims, "test");
-        var principal = new ClaimsPrincipal(identity);
-        _mockHttpContext.Setup(x => x.User).Returns(principal);
 
         // Act
         var result = await controller.Logout();
