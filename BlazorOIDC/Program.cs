@@ -165,6 +165,16 @@ try
                     normalizationService.NormalizeRoleClaims(context.Principal!);
                     await Task.CompletedTask;
                 },
+                OnRedirectToIdentityProviderForSignOut = context =>
+                {
+                    // Pass id_token_hint for Keycloak logout (required by Keycloak)
+                    var idTokenHint = context.Properties?.GetTokenValue("id_token");
+                    if (!string.IsNullOrEmpty(idTokenHint))
+                    {
+                        context.ProtocolMessage.IdTokenHint = idTokenHint;
+                    }
+                    return Task.CompletedTask;
+                },
                 OnAuthenticationFailed = context =>
                 {
                     Log.Warning("OIDC authentication failed: {Exception}", context.Exception?.Message ?? "Unknown error");
@@ -204,7 +214,18 @@ try
     builder.Services.AddScoped<ClaimsNormalizationService>();
 
     // Phase 9: Token Refresh Service
-    builder.Services.AddHttpClient<TokenRefreshService>();
+    builder.Services.AddHttpClient<TokenRefreshService>()
+        .ConfigurePrimaryHttpMessageHandler(() =>
+        {
+            var handler = new HttpClientHandler();
+            if (builder.Environment.IsDevelopment())
+            {
+                // Allow untrusted certificates for local OIDC provider in dev only
+                handler.ServerCertificateCustomValidationCallback =
+                    (message, cert, chain, errors) => true;
+            }
+            return handler;
+        });
 
     // Add services to the container
     builder.Services.AddControllers();
