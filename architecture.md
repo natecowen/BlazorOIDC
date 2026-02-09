@@ -89,3 +89,57 @@ Without additional API-level authorization. In those contexts, tokens must be va
 - **Exposing tokens to the browser** — Blazor Server has no reason to do this; if tokens reach the client, something is misconfigured
 - **Hardcoding role claim names** — Different IdPs use different claim types; always make the role claim source configurable
 - **Using roles instead of policies everywhere** — Policies scale better; `[Authorize(Policy = "CanEdit")]` is more maintainable than `[Authorize(Roles = "Edit,Admin")]`
+
+---
+
+## Design Approach - Explaining App Parts
+
+This section goes over specific files in the app and explains their purpose. 
+
+### TokenRefreshService
+
+This application introduces an explicit **TokenRefreshService** that runs during cookie validation.
+
+Its responsibilities are:
+
+- Inspect the access token expiration
+- Apply a configurable clock-skew tolerance
+- Refresh the access token using the refresh token when necessary
+- Update the authentication cookie *in-place*
+- Fail safely by rejecting the session if refresh is not possible
+
+
+### ClaimsNormalizationService
+
+ Different identity providers (and even different configurations of the same provider) emit roles and groups in different ways. This application introduces a **ClaimsNormalizationService** that acts as a translation layer between the identity provider claim formats and the ASP.NET Core authorization expectations. 
+
+ Ultimately, it allows for greater flexibility via configs without hardcoding specific IDP items inside the app. 
+
+
+The service:
+- Extracts roles from a configurable token source (ID token or access token)
+- Supports nested JSON using dot-notation paths
+- Normalizes extracted roles into `ClaimTypes.Role`
+- Runs during login and after token refresh
+
+
+### DevLoginComponent
+
+ This controller provides a DEVELOPMENT-ONLY authentication bypass
+ that simulates a logged-in user with a specific role.
+
+- Issues a local authentication cookie
+- Allows selecting a role (View, Edit, Admin)
+- Never issues or simulates OIDC tokens
+- Is strictly gated to development environments
+
+This enables rapid testing of authorization logic without weakening production security.
+
+#### Safety Guarantees
+
+The development login:
+- Is disabled outside of development environments
+- Does not mimic or replace real OIDC behavior
+- Exists solely to support RBAC testing during development
+
+It must never be enabled in production deployments.

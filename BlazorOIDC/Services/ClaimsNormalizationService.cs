@@ -5,6 +5,8 @@ using Microsoft.Extensions.Options;
 
 namespace BlazorOIDC.Services;
 
+// See architecture.md → "Claims Normalization & Role Mapping" for understanding of what this file does.
+
 /// <summary>
 /// Service for normalizing and extracting roles from token claims (AC-19, AC-20, AC-21, AC-22)
 /// </summary>

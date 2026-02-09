@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace BlazorOIDC.Controllers;
 
+// Development-only auth bypass. See architecture.md → "Development Authentication" for better understanding of why this exists
+
+
 /// <summary>
 /// Development-only controller for bypassing OIDC authentication during local development
 /// This controller is only available when IHostEnvironment.IsDevelopment() is true

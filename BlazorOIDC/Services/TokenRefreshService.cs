@@ -7,6 +7,9 @@ using Microsoft.Extensions.Options;
 
 namespace BlazorOIDC.Services;
 
+// See architecture.md → "Token Refresh & Session Management" for understanding of what this file does.
+
+
 /// <summary>
 /// Service for handling token refresh and validation (AC-10 through AC-14, AC-51, AC-52, AC-60, AC-61, AC-62)
 /// </summary>
