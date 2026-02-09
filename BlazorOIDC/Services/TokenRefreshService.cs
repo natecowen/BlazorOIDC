@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text.Json;
 using BlazorOIDC.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
@@ -69,7 +70,7 @@ public class TokenRefreshService
             _logger.LogDebug("Token is expired or within clock skew window, attempting refresh");
 
             // Refresh the token via the OIDC token endpoint
-            var refreshed = await RefreshAccessTokenAsync(refreshToken);
+            var refreshed = await RefreshAccessTokenAsync(refreshToken, properties);
             if (!refreshed)
             {
                 // AC-12, AC-13: On failure, return false and let the principal be rejected
@@ -91,9 +92,9 @@ public class TokenRefreshService
 
     /// <summary>
     /// Calls the OIDC token endpoint to refresh the access token using the refresh token.
-    /// Assumes standard OIDC token endpoint at {Authority}/protocol/openid-connect/token
+    /// Parses the response and updates tokens in AuthenticationProperties in-place.
     /// </summary>
-    private async Task<bool> RefreshAccessTokenAsync(string? refreshToken)
+    private async Task<bool> RefreshAccessTokenAsync(string? refreshToken, AuthenticationProperties properties)
     {
         if (string.IsNullOrWhiteSpace(refreshToken))
         {
@@ -103,7 +104,6 @@ public class TokenRefreshService
 
         try
         {
-            // Construct token endpoint URL (standard OIDC convention)
             var tokenEndpoint = $"{_oidcOptions.Authority.TrimEnd('/')}/protocol/openid-connect/token";
 
             var request = new HttpRequestMessage(HttpMethod.Post, tokenEndpoint)
@@ -128,8 +128,42 @@ public class TokenRefreshService
                 return false;
             }
 
-            // TODO: Parse response and update tokens in properties (Phase 9 continuation)
-            // For now, just indicate success if we got a 200 response
+            // AC-10, AC-11: Parse token endpoint response
+            var content = await response.Content.ReadAsStringAsync();
+            var tokenResponse = JsonSerializer.Deserialize<JsonElement>(content);
+
+            if (!tokenResponse.TryGetProperty("access_token", out var newAccessToken))
+            {
+                _logger.LogWarning("Token response missing access_token");
+                return false;
+            }
+
+            // AC-14: Validate new ID token if present
+            if (tokenResponse.TryGetProperty("id_token", out var newIdToken))
+            {
+                var idTokenString = newIdToken.GetString();
+                if (!ValidateIdToken(idTokenString))
+                {
+                    _logger.LogWarning("New ID token validation failed");
+                    return false;
+                }
+                properties.Items[".Token.id_token"] = idTokenString;
+            }
+
+            // Update tokens in AuthenticationProperties
+            properties.Items[".Token.access_token"] = newAccessToken.GetString()!;
+
+            if (tokenResponse.TryGetProperty("refresh_token", out var newRefreshToken))
+            {
+                properties.Items[".Token.refresh_token"] = newRefreshToken.GetString()!;
+            }
+
+            if (tokenResponse.TryGetProperty("expires_in", out var expiresIn))
+            {
+                var expiresAt = DateTimeOffset.UtcNow.AddSeconds(expiresIn.GetInt32());
+                properties.Items[".Token.expires_at"] = expiresAt.ToString("o");
+            }
+
             return true;
         }
         catch (HttpRequestException ex)
@@ -138,5 +172,36 @@ public class TokenRefreshService
             _logger.LogWarning(ex, "Failed to reach OIDC token endpoint");
             return false;
         }
+    }
+
+    /// <summary>
+    /// Validates a new ID token by checking issuer and expiry.
+    /// </summary>
+    private bool ValidateIdToken(string? idToken)
+    {
+        if (string.IsNullOrWhiteSpace(idToken))
+            return false;
+
+        var handler = new JwtSecurityTokenHandler();
+        if (!handler.CanReadToken(idToken))
+            return false;
+
+        var token = handler.ReadJwtToken(idToken);
+
+        // Verify issuer matches configured authority
+        if (!string.Equals(token.Issuer, _oidcOptions.Authority.TrimEnd('/'), StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning("ID token issuer mismatch: expected {Expected}, got {Actual}", _oidcOptions.Authority, token.Issuer);
+            return false;
+        }
+
+        // Verify token is not expired
+        if (token.ValidTo < DateTime.UtcNow)
+        {
+            _logger.LogWarning("New ID token is already expired");
+            return false;
+        }
+
+        return true;
     }
 }
