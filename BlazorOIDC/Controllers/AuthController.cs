@@ -30,14 +30,8 @@ public class AuthController : ControllerBase
     /// In production, triggers OIDC challenge
     /// </summary>
     [HttpPost("login")]
-    public IActionResult Login([FromForm] string? returnUrl = null)
+    public IActionResult Login()
     {
-        // Validate returnUrl to prevent open redirect
-        if (string.IsNullOrEmpty(returnUrl) || !Url.IsLocalUrl(returnUrl))
-        {
-            returnUrl = "/";
-        }
-
         if (HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment() && _oidcOptions.ShouldLocalDevUseOIDC == false)
         {
             // In development, redirect to dev-login page
