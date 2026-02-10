@@ -79,10 +79,15 @@ Recommended structured log fields:
 
 ### 3.2 Logout Flow
 
-1. User initiates logout
-2. Local authentication cookie is invalidated
-3. If the IdP end-session endpoint is configured, the user is redirected there; if not, this step is skipped silently
-4. User is redirected to the home page
+1. User initiates logout via the Logout button
+2. For OIDC-authenticated users (with id_token):
+   - The application calls `SignOutAsync()` with both `"Cookies"` and `"OpenIdConnect"` schemes
+   - The OIDC middleware's `OnRedirectToIdentityProviderForSignOut` event handler extracts the stored `id_token` from authentication properties
+   - The handler adds the token to the protocol message as `IdTokenHint` (required by Keycloak and some other IdPs)
+   - The user is redirected to the IdP's end-session endpoint
+3. For dev-login sessions (no id_token):
+   - The application clears the authentication cookie and redirects to home
+4. The IdP confirms logout and redirects the user back to the home page
 
 ### 3.3 Token Refresh
 
@@ -605,10 +610,19 @@ Each phase produces a working application state. Acceptance criteria (AC) that c
 
 ### Phase 10: Logout Flow
 
-- Wire logout to clear the local authentication cookie
-- If the IdP end-session endpoint is configured, redirect through it
-- If not configured, redirect directly to home
-- Verify logout works with both the dev login bypass and real OIDC
+- Create logout endpoint in AuthController
+- Check if user has an id_token (OIDC authentication):
+  - If yes:
+    1. Retrieve the `id_token` value via `GetTokenAsync("id_token")` (before signing out)
+    2. Create a **minimal** `AuthenticationProperties` with only the `id_token` stored and `RedirectUri = "/"`
+    3. Call `SignOut()` with those properties and both `"Cookies"` and `"OpenIdConnect"` schemes
+    4. **CRITICAL:** Do NOT pass the full `AuthenticationProperties` from `AuthenticateAsync()` — serializing all tokens (access, refresh, id) into the redirect causes HTTP 431 (Request Header Fields Too Large) at the IdP. Only include the `id_token`.
+  - If no (dev-login): Clear the cookie and redirect to home
+- In Program.cs, implement `OpenIdConnectEvents.OnRedirectToIdentityProviderForSignOut` handler:
+  - Extract `id_token` from `context.Properties?.GetTokenValue("id_token")`
+  - Add it to the protocol message: `context.ProtocolMessage.IdTokenHint = idToken`
+- The OIDC middleware will redirect to the IdP's end-session endpoint with the `id_token_hint` parameter
+- Verify logout works with both dev login bypass and real OIDC authentication
 
 **Verifiable:** AC-6, AC-7, AC-8, AC-9
 

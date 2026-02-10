@@ -167,12 +167,15 @@ try
                 },
                 OnRedirectToIdentityProviderForSignOut = context =>
                 {
-                    // Pass id_token_hint for Keycloak logout (required by Keycloak)
-                    var idTokenHint = context.Properties?.GetTokenValue("id_token");
-                    if (!string.IsNullOrEmpty(idTokenHint))
+                    // Read id_token from HttpContext.Items (set by AuthController.Logout).
+                    // We use Items instead of AuthenticationProperties to avoid serializing
+                    // the token into the OIDC state parameter (causes HTTP 431).
+                    if (context.HttpContext.Items["id_token_for_logout"] is string idTokenHint
+                        && !string.IsNullOrEmpty(idTokenHint))
                     {
                         context.ProtocolMessage.IdTokenHint = idTokenHint;
                     }
+
                     return Task.CompletedTask;
                 },
                 OnAuthenticationFailed = context =>
@@ -191,23 +194,21 @@ try
     // Phase 3: Authorization Policies
     builder.Services.AddAuthorization(options =>
     {
-        // AC-23, AC-24: CanView requires View, Edit, or Admin
+        // AC-23, AC-24: CanView requires poc.viewer or poc.admin
         options.AddPolicy("CanView", policy =>
             policy.RequireAssertion(context =>
-                context.User.HasClaim(ClaimTypes.Role, "View") ||
-                context.User.HasClaim(ClaimTypes.Role, "Edit") ||
-                context.User.HasClaim(ClaimTypes.Role, "Admin")));
+                context.User.HasClaim(ClaimTypes.Role, "poc.viewer") ||
+                context.User.HasClaim(ClaimTypes.Role, "poc.admin")));
 
-        // AC-25, AC-26: CanEdit requires Edit or Admin
+        // AC-25, AC-26: CanEdit requires poc.admin
         options.AddPolicy("CanEdit", policy =>
             policy.RequireAssertion(context =>
-                context.User.HasClaim(ClaimTypes.Role, "Edit") ||
-                context.User.HasClaim(ClaimTypes.Role, "Admin")));
+                context.User.HasClaim(ClaimTypes.Role, "poc.admin")));
 
-        // AC-27: IsAdmin requires Admin
+        // AC-27: IsAdmin requires poc.admin
         options.AddPolicy("IsAdmin", policy =>
             policy.RequireAssertion(context =>
-                context.User.HasClaim(ClaimTypes.Role, "Admin")));
+                context.User.HasClaim(ClaimTypes.Role, "poc.admin")));
     });
 
     // Phase 7: Claims Normalization Service

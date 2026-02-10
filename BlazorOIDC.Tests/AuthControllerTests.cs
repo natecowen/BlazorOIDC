@@ -99,23 +99,17 @@ public class AuthControllerTests
     }
 
     /// <summary>
-    /// AC-6, AC-36: Logout signs out the user
+    /// AC-6, AC-9: Logout without OIDC clears cookie and redirects to home
     /// </summary>
     [Test]
-    public async Task Logout_SignsOutUser()
+    public async Task Logout_WithoutOidc_ClearsCookieAndRedirectsToHome()
     {
-        // Arrange
+        // Arrange: no id_token (dev-login user)
         var controller = CreateController();
         var mockAuthService = new Mock<IAuthenticationService>();
 
         _mockHttpContext.Setup(x => x.RequestServices.GetService(typeof(IAuthenticationService)))
             .Returns(mockAuthService.Object);
-
-        // User has no id_token (not OIDC authenticated)
-        var claims = new List<Claim> { new Claim(ClaimTypes.Name, "testuser") };
-        var identity = new ClaimsIdentity(claims, "test");
-        var principal = new ClaimsPrincipal(identity);
-        _mockHttpContext.Setup(x => x.User).Returns(principal);
 
         // Act
         var result = await controller.Logout();
@@ -127,53 +121,29 @@ public class AuthControllerTests
                 "Cookies",
                 It.IsAny<AuthenticationProperties>()),
             Times.Once);
-    }
 
-    /// <summary>
-    /// AC-9: Logout without OIDC redirects to home
-    /// </summary>
-    [Test]
-    public async Task Logout_WithoutOidc_RedirectsToHome()
-    {
-        // Arrange
-        var controller = CreateController();
-        var mockAuthService = new Mock<IAuthenticationService>();
-
-        _mockHttpContext.Setup(x => x.RequestServices.GetService(typeof(IAuthenticationService)))
-            .Returns(mockAuthService.Object);
-
-        // User has no id_token
-        var claims = new List<Claim> { new Claim(ClaimTypes.Name, "testuser") };
-        var identity = new ClaimsIdentity(claims, "test");
-        var principal = new ClaimsPrincipal(identity);
-        _mockHttpContext.Setup(x => x.User).Returns(principal);
-
-        // Act
-        var result = await controller.Logout();
-
-        // Assert
         Assert.That(result, Is.InstanceOf<RedirectResult>());
-        var redirectResult = (RedirectResult)result;
-        Assert.That(redirectResult.Url, Is.EqualTo("/"));
+        Assert.That(((RedirectResult)result).Url, Is.EqualTo("/"));
     }
 
     /// <summary>
-    /// AC-8: Logout with OIDC redirects through end-session endpoint
+    /// AC-8, AC-6: Logout with OIDC triggers SignOut with both schemes,
+    /// passing id_token via HttpContext.Items to avoid HTTP 431
     /// </summary>
     [Test]
-    public async Task Logout_WithOidc_RedirectsToEndSession()
+    public async Task Logout_WithOidc_ReturnsSignOutResultWithBothSchemesAndTokenInItems()
     {
         // Arrange
         var controller = CreateController();
         var mockAuthService = new Mock<IAuthenticationService>();
+        var items = new Dictionary<object, object?>();
 
-        // Mock AuthenticateAsync to return properties containing an id_token
-        // (GetTokenAsync is an extension that calls AuthenticateAsync internally)
         var properties = new AuthenticationProperties();
         properties.StoreTokens([new AuthenticationToken { Name = "id_token", Value = "test-token-value" }]);
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, "testuser") }, "test"));
         _mockHttpContext.Setup(x => x.User).Returns(principal);
+        _mockHttpContext.Setup(x => x.Items).Returns(items);
 
         mockAuthService
             .Setup(x => x.AuthenticateAsync(_mockHttpContext.Object, It.IsAny<string>()))
@@ -186,11 +156,12 @@ public class AuthControllerTests
         var result = await controller.Logout();
 
         // Assert
-        Assert.That(result, Is.InstanceOf<RedirectResult>());
-        var redirectResult = (RedirectResult)result;
-        Assert.That(redirectResult.Url, Does.Contain("https://idp.example.com"));
-        Assert.That(redirectResult.Url, Does.Contain("/protocol/openid-connect/logout"));
-        Assert.That(redirectResult.Url, Does.Contain("post_logout_redirect_uri=https%3A%2F%2Flocalhost%3A7064%2F"));
+        Assert.That(result, Is.InstanceOf<SignOutResult>());
+        var signOutResult = (SignOutResult)result;
+        Assert.That(signOutResult.AuthenticationSchemes, Does.Contain("Cookies"));
+        Assert.That(signOutResult.AuthenticationSchemes, Does.Contain("OpenIdConnect"));
+        Assert.That(signOutResult.Properties?.RedirectUri, Is.EqualTo("/"));
+        Assert.That(items["id_token_for_logout"], Is.EqualTo("test-token-value"));
     }
 
     /// <summary>
@@ -207,8 +178,7 @@ public class AuthControllerTests
 
         // Assert
         Assert.That(result, Is.InstanceOf<RedirectResult>());
-        var redirectResult = (RedirectResult)result;
-        Assert.That(redirectResult.Url, Is.EqualTo("/"));
+        Assert.That(((RedirectResult)result).Url, Is.EqualTo("/"));
     }
 
 }

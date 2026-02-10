@@ -46,46 +46,31 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Logout endpoint (AC-6, AC-36, AC-8, AC-9)
-    /// Clears the authentication cookie and optionally redirects through IdP end-session
+    /// Logout endpoint (AC-6, AC-8, AC-9, AC-36)
+    /// Clears cookie and triggers full OIDC end-session (Keycloak → Azure AD)
     /// </summary>
     [HttpPost("logout")]
     public async Task<IActionResult> Logout()
     {
-        // AC-8, AC-9: Check if user authenticated via OIDC (has id_token) and IdP end-session is configured
-        // Dev-login sessions won't have id_token, so they'll skip end-session
-        // Must retrieve token BEFORE signing out (SignOutAsync clears the cookie)
+        // Get id_token BEFORE signing out (cookie clearing destroys it)
         var idToken = await HttpContext.GetTokenAsync("id_token");
 
-        // AC-6: Clear the local authentication cookie
-        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        _logger.LogInformation("User logged out");
-
-        var hasIdToken = idToken != null;
-        if (hasIdToken && !string.IsNullOrWhiteSpace(_oidcOptions.Authority))
+        if (!string.IsNullOrEmpty(idToken) && !string.IsNullOrWhiteSpace(_oidcOptions.Authority))
         {
-            try
-            {
-                // Construct the end-session endpoint URL (standard OIDC convention)
-                var endSessionEndpoint = $"{_oidcOptions.Authority.TrimEnd('/')}/protocol/openid-connect/logout";
+            // Pass id_token via HttpContext.Items — request-scoped, never serialized.
+            // Using AuthenticationProperties.StoreTokens causes HTTP 431 because
+            // the token gets serialized into the OIDC state parameter.
+            HttpContext.Items["id_token_for_logout"] = idToken;
 
-                // Build the post_logout_redirect_uri parameter
-                var scheme = HttpContext.Request.Scheme;
-                var host = HttpContext.Request.Host;
-                var redirectUri = $"{scheme}://{host}/";
-
-                // Redirect to IdP end-session endpoint
-                var logoutUrl = $"{endSessionEndpoint}?post_logout_redirect_uri={Uri.EscapeDataString(redirectUri)}";
-                return Redirect(logoutUrl);
-            }
-            catch (Exception ex)
-            {
-                // AC-9: If end-session fails or is not configured, silently redirect to home
-                _logger.LogWarning(ex, "Failed to construct end-session URL, redirecting to home");
-            }
+            return SignOut(
+                new AuthenticationProperties { RedirectUri = "/" },
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                "OpenIdConnect");
         }
 
-        // AC-9: If IdP end-session endpoint is not configured or user used dev-login, redirect directly to home
+        // Dev-login or no IdP: just clear the cookie
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        _logger.LogInformation("User logged out");
         return Redirect("/");
     }
 
