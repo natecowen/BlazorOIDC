@@ -50,6 +50,8 @@ try
 
     // Phase 2: Cookie Authentication
     var sessionConfig = builder.Configuration.GetSection("Session").Get<SessionConfig>() ?? new SessionConfig();
+    var oidcConfig = builder.Configuration.GetSection("Oidc").Get<OidcOptions>() ?? new OidcOptions();
+    bool devUseOIDC = oidcConfig.ShouldLocalDevUseOIDC;
 
     builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
         .AddCookie(options =>
@@ -78,7 +80,7 @@ try
             // AC-58: Cookie chunking enabled by default in ASP.NET Core
 
             // AC-45: Dev mode redirects to /dev-login
-            if (builder.Environment.IsDevelopment())
+            if (builder.Environment.IsDevelopment() && devUseOIDC == false)
             {
                 options.LoginPath = "/dev-login";
             }

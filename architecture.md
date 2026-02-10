@@ -135,11 +135,16 @@ The service:
 
 This enables rapid testing of authorization logic without weakening production security.
 
+#### OIDC Toggle for Development (`ShouldLocalDevUseOIDC`)
+
+By default (`false`), development mode uses the dev-login bypass for rapid iteration without an IdP. When set to `true` in `oidc.json`, the full OIDC flow is used in development, enabling end-to-end testing against a local IdP (e.g., Keycloak in Docker). This toggle only affects which login path is used in development — it has no effect in production, where OIDC is always used.
+
 #### Safety Guarantees
 
 The development login:
 - Is disabled outside of development environments
 - Does not mimic or replace real OIDC behavior
 - Exists solely to support RBAC testing during development
+- `ShouldLocalDevUseOIDC` is a development convenience toggle, not a security gate — the `IsDevelopment()` guard remains the only control for dev-login availability
 
 It must never be enabled in production deployments.

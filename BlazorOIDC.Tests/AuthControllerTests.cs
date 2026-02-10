@@ -53,12 +53,13 @@ public class AuthControllerTests
     }
 
     /// <summary>
-    /// AC-35: Login action redirects to /dev-login in development
+    /// AC-35: Login action redirects to /dev-login in development when ShouldLocalDevUseOIDC is false
     /// </summary>
     [Test]
-    public void Login_InDevelopment_RedirectsToDevLogin()
+    public void Login_InDevelopment_DevLoginBypass_RedirectsToDevLogin()
     {
         // Arrange
+        _oidcOptions.ShouldLocalDevUseOIDC = false;
         var controller = CreateController();
         var mockEnvironment = new Mock<IWebHostEnvironment>();
         mockEnvironment.Setup(e => e.EnvironmentName).Returns("Development");
@@ -73,6 +74,30 @@ public class AuthControllerTests
         Assert.That(result, Is.InstanceOf<RedirectResult>());
         var redirectResult = (RedirectResult)result;
         Assert.That(redirectResult.Url, Is.EqualTo("/dev-login"));
+    }
+
+    /// <summary>
+    /// AC-50: Login action triggers OIDC challenge in development when ShouldLocalDevUseOIDC is true
+    /// </summary>
+    [Test]
+    public void Login_InDevelopment_OidcEnabled_TriggersOidcChallenge()
+    {
+        // Arrange
+        _oidcOptions.ShouldLocalDevUseOIDC = true;
+        var controller = CreateController();
+        var mockEnvironment = new Mock<IWebHostEnvironment>();
+        mockEnvironment.Setup(e => e.EnvironmentName).Returns("Development");
+
+        _mockHttpContext.Setup(x => x.RequestServices.GetService(typeof(IWebHostEnvironment)))
+            .Returns(mockEnvironment.Object);
+
+        // Act
+        var result = controller.Login();
+
+        // Assert
+        Assert.That(result, Is.InstanceOf<ChallengeResult>());
+        var challengeResult = (ChallengeResult)result;
+        Assert.That(challengeResult.AuthenticationSchemes, Does.Contain("OpenIdConnect"));
     }
 
     /// <summary>

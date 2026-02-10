@@ -32,7 +32,7 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public IActionResult Login()
     {
-        if (HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment())
+        if (HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment() && _oidcOptions.ShouldLocalDevUseOIDC == false)
         {
             // In development, redirect to dev-login page
             return Redirect("/dev-login");

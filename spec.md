@@ -285,7 +285,8 @@ Routes are protected using:
 
 - **Unauthenticated users** requesting a protected route trigger an authentication challenge:
   - **Production:** redirected to the IdP login page via OIDC challenge
-  - **Development:** redirected to `/dev-login` (the auth challenge is configured to use `/dev-login` as the login path when `IsDevelopment()` is true)
+  - **Development (default):** redirected to `/dev-login` when `ShouldLocalDevUseOIDC` is `false` (the default)
+  - **Development (OIDC mode):** redirected to the IdP login page via OIDC challenge when `ShouldLocalDevUseOIDC` is `true`, allowing developers to test the full OIDC flow locally
 - **Authenticated users without the required role** are redirected to the Access Denied page (`/access-denied`)
 
 ### 7.5 Development Login Bypass
@@ -299,10 +300,20 @@ For local development without a running IdP, the application provides a dev logi
 3. On submission, the application creates a `ClaimsPrincipal` with the selected role and issues an authentication cookie
 4. The developer is redirected to the home page as an authenticated user
 
+**OIDC toggle for development:**
+
+When `ShouldLocalDevUseOIDC` is set to `true` in `oidc.json`, the dev-login bypass is disabled and the full OIDC flow is used even in development. This allows developers to test OIDC integration locally against a running IdP (e.g., local Keycloak). The default is `false` (dev-login bypass active).
+
+- When `false` (default): cookie `LoginPath` is `/dev-login`, Login button redirects to `/dev-login`
+- When `true`: cookie `LoginPath` is default (triggers OIDC challenge), Login button triggers OIDC challenge
+
+The `/dev-login` page itself remains accessible by direct URL navigation in both modes, so developers can still use it manually even when OIDC is enabled.
+
 **Security constraints:**
 
 - The dev login route, middleware, and all supporting code must be **completely excluded** from non-development builds
 - Guard with `IHostEnvironment.IsDevelopment()` — do not use a configuration flag that could accidentally be enabled in production
+- `ShouldLocalDevUseOIDC` only controls whether dev-login is the *default* login path in development; it does **not** enable dev-login in production
 - The dev login page should display a clear visual warning that it is a development-only feature
 
 ---
@@ -329,6 +340,7 @@ Each file is loaded explicitly via `ConfigurationBuilder.AddJsonFile()` in Progr
 ```json
 {
   "Oidc": {
+    "ShouldLocalDevUseOIDC": false,
     "Authority": "https://keycloak.example.com/realms/myrealm",
     "ClientId": "blazor-app",
     "Scopes": ["openid", "profile", "roles", "offline_access"],
@@ -463,7 +475,7 @@ Each criterion is a testable statement that defines "done" for a feature area.
 
 - AC-33: When unauthenticated, the nav bar displays a Login button
 - AC-34: When authenticated, the nav bar displays the username, current role, and a Logout button
-- AC-35: Clicking the Login button initiates the login flow (OIDC challenge in production, redirect to `/dev-login` in development)
+- AC-35: Clicking the Login button initiates the login flow (OIDC challenge in production; redirect to `/dev-login` in development when `ShouldLocalDevUseOIDC` is false; OIDC challenge in development when `ShouldLocalDevUseOIDC` is true)
 - AC-36: Clicking the Logout button initiates the logout flow
 
 ### 10.9 Claims Page
@@ -479,7 +491,8 @@ Each criterion is a testable statement that defines "done" for a feature area.
 - AC-42: The dev login page presents a form to select a role (View, Edit, or Admin)
 - AC-43: Submitting the dev login form creates an authenticated session with the selected role
 - AC-44: The dev login page displays a visible warning that it is a development-only feature
-- AC-45: In development mode, unauthenticated users requesting a protected route are redirected to `/dev-login`
+- AC-45: In development mode, unauthenticated users requesting a protected route are redirected to `/dev-login` (when `ShouldLocalDevUseOIDC` is false) or to the IdP via OIDC challenge (when `ShouldLocalDevUseOIDC` is true)
+- AC-50: When `ShouldLocalDevUseOIDC` is `true` in `oidc.json`, the application uses the full OIDC authentication flow in development mode instead of the dev-login bypass
 
 ### 10.11 Configuration
 
