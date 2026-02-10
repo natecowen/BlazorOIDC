@@ -1,6 +1,6 @@
 {
   "Oidc": {
-    "ShouldLocalDevUseOIDC": true,
+    "ShouldLocalDevUseOIDC": false,
     "Authority": "https://my-oidc-provider",
     "ClientId": "blazor-oidc-client",
     "Scopes": ["openid", "profile", "roles", "offline_access"],

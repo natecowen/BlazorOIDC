@@ -1,10 +1,11 @@
 @page "/dev-login"
 @inject IWebHostEnvironment Environment
+@inject NavigationManager NavigationManager
 
 @if (!Environment.IsDevelopment())
 {
     <PageTitle>Not Found</PageTitle>
-    <h1>404 - Not Found</h1>
+    <p>Redirecting...</p>
 }
 else
 {
@@ -65,4 +66,14 @@ else
             </div>
         </div>
     </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        if (!Environment.IsDevelopment())
+        {
+            NavigationManager.NavigateTo("/not-found", forceLoad: true);
+        }
+    }
 }

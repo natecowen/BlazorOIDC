@@ -76,6 +76,24 @@ public class TokenRefreshTests
     }
 
     /// <summary>
+    /// Creates an HttpClient that routes discovery and token endpoint requests separately.
+    /// Used by tests that trigger token refresh (expired/near-expiry tokens).
+    /// </summary>
+    private static HttpClient CreateMockHttpClientWithDiscovery(HttpStatusCode tokenStatusCode, string? tokenResponseBody = null)
+    {
+        var discoveryResponse = JsonSerializer.Serialize(new
+        {
+            token_endpoint = $"{TestAuthority}/protocol/openid-connect/token"
+        });
+        var handler = new MockHttpMessageHandler(new Dictionary<string, (HttpStatusCode, string)>
+        {
+            { ".well-known/openid-configuration", (HttpStatusCode.OK, discoveryResponse) },
+            { "token", (tokenStatusCode, tokenResponseBody ?? "") }
+        });
+        return new HttpClient(handler);
+    }
+
+    /// <summary>
     /// AC-51, AC-52: Token within clock skew window should be refreshed
     /// </summary>
     [Test]
@@ -92,7 +110,7 @@ public class TokenRefreshTests
             expires_in = 3600
         });
 
-        var httpClient = CreateMockHttpClient(HttpStatusCode.OK, responseBody);
+        var httpClient = CreateMockHttpClientWithDiscovery(HttpStatusCode.OK, responseBody);
         var service = CreateService(httpClient);
 
         var tokenString = CreateTestJwt(DateTime.UtcNow.AddMinutes(1));
@@ -215,7 +233,7 @@ public class TokenRefreshTests
     public async Task RefreshTokenIfNeeded_HandlesTokenEndpointFailure()
     {
         // Arrange — endpoint returns 401
-        var httpClient = CreateMockHttpClient(HttpStatusCode.Unauthorized);
+        var httpClient = CreateMockHttpClientWithDiscovery(HttpStatusCode.Unauthorized);
         var service = CreateService(httpClient);
 
         var tokenString = CreateTestJwt(DateTime.UtcNow.AddSeconds(30)); // expired within skew
@@ -249,7 +267,7 @@ public class TokenRefreshTests
             expires_in = 3600
         });
 
-        var httpClient = CreateMockHttpClient(HttpStatusCode.OK, responseBody);
+        var httpClient = CreateMockHttpClientWithDiscovery(HttpStatusCode.OK, responseBody);
         var service = CreateService(httpClient);
 
         var tokenString = CreateTestJwt(DateTime.UtcNow.AddSeconds(30));
@@ -283,7 +301,7 @@ public class TokenRefreshTests
             expires_in = 3600
         });
 
-        var httpClient = CreateMockHttpClient(HttpStatusCode.OK, responseBody);
+        var httpClient = CreateMockHttpClientWithDiscovery(HttpStatusCode.OK, responseBody);
         var service = CreateService(httpClient);
 
         var tokenString = CreateTestJwt(DateTime.UtcNow.AddSeconds(-10)); // already expired
@@ -317,7 +335,7 @@ public class TokenRefreshTests
             expires_in = 3600
         });
 
-        var httpClient = CreateMockHttpClient(HttpStatusCode.OK, responseBody);
+        var httpClient = CreateMockHttpClientWithDiscovery(HttpStatusCode.OK, responseBody);
         var service = CreateService(httpClient);
 
         var tokenString = CreateTestJwt(DateTime.UtcNow.AddSeconds(-10));
@@ -337,12 +355,14 @@ public class TokenRefreshTests
 }
 
 /// <summary>
-/// Mock HTTP handler for testing token refresh HTTP calls
+/// Mock HTTP handler for testing token refresh HTTP calls.
+/// Supports URL-pattern-based routing for discovery + token endpoint.
 /// </summary>
 public class MockHttpMessageHandler : HttpMessageHandler
 {
     private readonly HttpStatusCode _statusCode;
     private readonly string _responseBody;
+    private readonly Dictionary<string, (HttpStatusCode Code, string Body)>? _urlResponses;
 
     public MockHttpMessageHandler(HttpStatusCode statusCode, string responseBody)
     {
@@ -350,8 +370,29 @@ public class MockHttpMessageHandler : HttpMessageHandler
         _responseBody = responseBody;
     }
 
+    public MockHttpMessageHandler(Dictionary<string, (HttpStatusCode Code, string Body)> urlResponses)
+    {
+        _urlResponses = urlResponses;
+        _statusCode = HttpStatusCode.NotFound;
+        _responseBody = "";
+    }
+
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        if (_urlResponses != null && request.RequestUri != null)
+        {
+            foreach (var (pattern, (code, body)) in _urlResponses)
+            {
+                if (request.RequestUri.ToString().Contains(pattern))
+                {
+                    return Task.FromResult(new HttpResponseMessage(code)
+                    {
+                        Content = new StringContent(body, Encoding.UTF8, "application/json")
+                    });
+                }
+            }
+        }
+
         var response = new HttpResponseMessage(_statusCode)
         {
             Content = new StringContent(_responseBody, Encoding.UTF8, "application/json")

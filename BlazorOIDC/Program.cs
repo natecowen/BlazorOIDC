@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using BlazorOIDC.Components;
 using BlazorOIDC.Models;
@@ -53,7 +54,16 @@ try
     var oidcConfig = builder.Configuration.GetSection("Oidc").Get<OidcOptions>() ?? new OidcOptions();
     bool devUseOIDC = oidcConfig.ShouldLocalDevUseOIDC;
 
-    builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    bool useOidcChallenge = !builder.Environment.IsDevelopment() || devUseOIDC;
+
+    builder.Services.AddAuthentication(options =>
+        {
+            options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+            if (useOidcChallenge)
+            {
+                options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
+            }
+        })
         .AddCookie(options =>
         {
             // AC-57: Application-specific cookie name
@@ -113,6 +123,7 @@ try
                     if (context.Properties.Items.ContainsKey(".Token.access_token"))
                     {
                         var tokenRefreshService = context.HttpContext.RequestServices.GetRequiredService<TokenRefreshService>();
+                        var originalAccessToken = context.Properties.Items[".Token.access_token"];
                         var refreshed = await tokenRefreshService.RefreshTokenIfNeededAsync(context.Principal!, context.Properties);
 
                         if (!refreshed)
@@ -122,6 +133,44 @@ try
                             await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
                             Log.Information("Session rejected: token refresh failed");
                             return;
+                        }
+
+                        // If tokens were actually refreshed, reissue the cookie and replace principal
+                        if (context.Properties.Items[".Token.access_token"] != originalAccessToken)
+                        {
+                            context.ShouldRenew = true;
+
+                            // Spec §3.3: Replace principal with claims from new token
+                            context.Properties.Items.TryGetValue(".Token.id_token", out var newIdTokenString);
+                            if (!string.IsNullOrEmpty(newIdTokenString))
+                            {
+                                var jwtHandler = new JwtSecurityTokenHandler();
+                                if (jwtHandler.CanReadToken(newIdTokenString))
+                                {
+                                    var newJwt = jwtHandler.ReadJwtToken(newIdTokenString);
+                                    var newIdentity = new ClaimsIdentity(
+                                        newJwt.Claims,
+                                        "AuthenticationTypes.Federation",
+                                        ClaimTypes.Name,
+                                        ClaimTypes.Role);
+
+                                    // Re-normalize roles from the new ID token
+                                    // Note: During refresh, we always normalize from the ID token (which is validated and present).
+                                    // The RoleClaimSource config applies only during initial login; refresh uses the ID token as the source.
+                                    var normService = context.HttpContext.RequestServices.GetRequiredService<ClaimsNormalizationService>();
+                                    var tokenJson = newJwt.Payload.SerializeToJson();
+
+                                    if (tokenJson != null)
+                                    {
+                                        var tempClaim = new Claim("id_token", tokenJson);
+                                        newIdentity.AddClaim(tempClaim);
+                                        var newPrincipal = new ClaimsPrincipal(newIdentity);
+                                        normService.NormalizeRoleClaims(newPrincipal);
+                                        newIdentity.RemoveClaim(tempClaim);
+                                        context.ReplacePrincipal(newPrincipal);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -160,12 +209,49 @@ try
             // AC-59: Log authentication failures at Warning level
             options.Events = new OpenIdConnectEvents
             {
-                OnTokenValidated = async context =>
+                OnTokenValidated = context =>
                 {
                     // Phase 7: Wire claims normalization
                     var normalizationService = context.HttpContext.RequestServices.GetRequiredService<ClaimsNormalizationService>();
-                    normalizationService.NormalizeRoleClaims(context.Principal!);
-                    await Task.CompletedTask;
+                    var identity = context.Principal?.Identity as ClaimsIdentity;
+
+                    if (identity != null)
+                    {
+                        var authCfg = context.HttpContext.RequestServices.GetRequiredService<IOptions<AuthorizationConfig>>().Value;
+
+                        // Serialize the appropriate token payload as JSON for the normalization service.
+                        // The OIDC handler doesn't add raw tokens as claims on the principal — it maps
+                        // individual JWT claims. The normalization service expects a claim containing
+                        // the full JSON payload, so we add it temporarily and remove it after.
+                        string? tokenJson = null;
+                        if (authCfg.RoleClaimSource == "AccessToken")
+                        {
+                            var accessTokenString = context.TokenEndpointResponse?.AccessToken;
+                            if (!string.IsNullOrEmpty(accessTokenString))
+                            {
+                                var jwtHandler = new JwtSecurityTokenHandler();
+                                if (jwtHandler.CanReadToken(accessTokenString))
+                                {
+                                    tokenJson = jwtHandler.ReadJwtToken(accessTokenString).Payload.SerializeToJson();
+                                }
+                            }
+                        }
+                        else if (context.SecurityToken is JwtSecurityToken jwtToken)
+                        {
+                            tokenJson = jwtToken.Payload.SerializeToJson();
+                        }
+
+                        if (tokenJson != null)
+                        {
+                            var claimType = authCfg.RoleClaimSource == "AccessToken" ? "access_token" : "id_token";
+                            var tempClaim = new Claim(claimType, tokenJson);
+                            identity.AddClaim(tempClaim);
+                            normalizationService.NormalizeRoleClaims(context.Principal!);
+                            identity.RemoveClaim(tempClaim);
+                        }
+                    }
+
+                    return Task.CompletedTask;
                 },
                 OnRedirectToIdentityProviderForSignOut = context =>
                 {
@@ -196,21 +282,23 @@ try
     // Phase 3: Authorization Policies
     builder.Services.AddAuthorization(options =>
     {
-        // AC-23, AC-24: CanView requires poc.viewer or poc.admin
+        // AC-23, AC-24: CanView requires View, Edit, or Admin
         options.AddPolicy("CanView", policy =>
             policy.RequireAssertion(context =>
-                context.User.HasClaim(ClaimTypes.Role, "poc.viewer") ||
-                context.User.HasClaim(ClaimTypes.Role, "poc.admin")));
+                context.User.HasClaim(ClaimTypes.Role, "View") ||
+                context.User.HasClaim(ClaimTypes.Role, "Edit") ||
+                context.User.HasClaim(ClaimTypes.Role, "Admin")));
 
-        // AC-25, AC-26: CanEdit requires poc.admin
+        // AC-25, AC-26: CanEdit requires Edit or Admin
         options.AddPolicy("CanEdit", policy =>
             policy.RequireAssertion(context =>
-                context.User.HasClaim(ClaimTypes.Role, "poc.admin")));
+                context.User.HasClaim(ClaimTypes.Role, "Edit") ||
+                context.User.HasClaim(ClaimTypes.Role, "Admin")));
 
-        // AC-27: IsAdmin requires poc.admin
+        // AC-27: IsAdmin requires Admin only
         options.AddPolicy("IsAdmin", policy =>
             policy.RequireAssertion(context =>
-                context.User.HasClaim(ClaimTypes.Role, "poc.admin")));
+                context.User.HasClaim(ClaimTypes.Role, "Admin")));
     });
 
     // Phase 7: Claims Normalization Service

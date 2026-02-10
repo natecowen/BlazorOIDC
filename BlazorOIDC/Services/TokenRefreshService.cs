@@ -19,6 +19,7 @@ public class TokenRefreshService
     private readonly SessionConfig _sessionConfig;
     private readonly ILogger<TokenRefreshService> _logger;
     private readonly HttpClient _httpClient;
+    private string? _cachedTokenEndpoint;
 
     public TokenRefreshService(
         IOptions<OidcOptions> oidcOptions,
@@ -107,7 +108,12 @@ public class TokenRefreshService
 
         try
         {
-            var tokenEndpoint = $"{_oidcOptions.Authority.TrimEnd('/')}/protocol/openid-connect/token";
+            var tokenEndpoint = await GetTokenEndpointAsync();
+            if (string.IsNullOrEmpty(tokenEndpoint))
+            {
+                _logger.LogWarning("Could not determine token endpoint from OIDC discovery");
+                return false;
+            }
 
             var request = new HttpRequestMessage(HttpMethod.Post, tokenEndpoint)
             {
@@ -178,6 +184,40 @@ public class TokenRefreshService
     }
 
     /// <summary>
+    /// Discovers the token endpoint from the OIDC provider's .well-known/openid-configuration.
+    /// Caches the result for the lifetime of this service instance.
+    /// </summary>
+    private async Task<string?> GetTokenEndpointAsync()
+    {
+        if (_cachedTokenEndpoint != null)
+            return _cachedTokenEndpoint;
+
+        try
+        {
+            var discoveryUrl = $"{_oidcOptions.Authority}/.well-known/openid-configuration";
+            var response = await _httpClient.GetAsync(discoveryUrl);
+            response.EnsureSuccessStatusCode();
+
+            var content = await response.Content.ReadAsStringAsync();
+            var doc = JsonDocument.Parse(content);
+
+            if (doc.RootElement.TryGetProperty("token_endpoint", out var endpoint))
+            {
+                _cachedTokenEndpoint = endpoint.GetString();
+                return _cachedTokenEndpoint;
+            }
+
+            _logger.LogWarning("OIDC discovery document missing token_endpoint");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch OIDC discovery document");
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Validates a new ID token by checking issuer and expiry.
     /// </summary>
     private bool ValidateIdToken(string? idToken)
@@ -192,7 +232,7 @@ public class TokenRefreshService
         var token = handler.ReadJwtToken(idToken);
 
         // Verify issuer matches configured authority
-        if (!string.Equals(token.Issuer, _oidcOptions.Authority.TrimEnd('/'), StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(token.Issuer, _oidcOptions.Authority, StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogWarning("ID token issuer mismatch: expected {Expected}, got {Actual}", _oidcOptions.Authority, token.Issuer);
             return false;
