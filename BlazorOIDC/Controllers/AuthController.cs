@@ -38,11 +38,8 @@ public class AuthController : ControllerBase
             return Redirect("/dev-login");
         }
 
-        // Trigger OIDC challenge with return URL
-        return Challenge(new AuthenticationProperties
-        {
-            RedirectUri = returnUrl
-        }, "OpenIdConnect");
+        // Trigger OIDC challenge — OIDC middleware handles post-authentication redirect via CallbackPath
+        return Challenge(new AuthenticationProperties(), "OpenIdConnect");
     }
 
     /// <summary>

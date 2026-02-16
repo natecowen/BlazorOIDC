@@ -162,11 +162,8 @@ try
 
                                     if (tokenJson != null)
                                     {
-                                        var tempClaim = new Claim("id_token", tokenJson);
-                                        newIdentity.AddClaim(tempClaim);
+                                        normService.NormalizeRoleClaims(tokenJson, newIdentity);
                                         var newPrincipal = new ClaimsPrincipal(newIdentity);
-                                        normService.NormalizeRoleClaims(newPrincipal);
-                                        newIdentity.RemoveClaim(tempClaim);
                                         context.ReplacePrincipal(newPrincipal);
                                     }
                                 }
@@ -243,11 +240,7 @@ try
 
                         if (tokenJson != null)
                         {
-                            var claimType = authCfg.RoleClaimSource == "AccessToken" ? "access_token" : "id_token";
-                            var tempClaim = new Claim(claimType, tokenJson);
-                            identity.AddClaim(tempClaim);
-                            normalizationService.NormalizeRoleClaims(context.Principal!);
-                            identity.RemoveClaim(tempClaim);
+                            normalizationService.NormalizeRoleClaims(tokenJson, identity);
                         }
                     }
 

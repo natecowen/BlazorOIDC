@@ -476,6 +476,7 @@ Each criterion is a testable statement that defines "done" for a feature area.
 - AC-33: When unauthenticated, the nav bar displays a Login button
 - AC-34: When authenticated, the nav bar displays the username, current role, and a Logout button
 - AC-35: Clicking the Login button initiates the login flow (OIDC challenge in production; redirect to `/dev-login` in development when `ShouldLocalDevUseOIDC` is false; OIDC challenge in development when `ShouldLocalDevUseOIDC` is true)
+  - **Note on Login Flow:** The Login endpoint does not accept or preserve return URLs. Post-authentication redirects are handled by the OIDC middleware's configured `CallbackPath` (default: `/signin-oidc`), which redirects to the application root (`/`) after successful authentication. If deep-linking support is needed in the future, it should be implemented via query parameters on the Login button form action, not as a controller parameter.
 - AC-36: Clicking the Logout button initiates the logout flow
 
 ### 10.9 Claims Page

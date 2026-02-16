@@ -48,18 +48,13 @@ public class ClaimsNormalizationTests
             realm_access = new { roles = new[] { "View", "Edit" } }
         });
 
-        var claims = new List<Claim>
-        {
-            new Claim("id_token", tokenJson)
-        };
-        var identity = new ClaimsIdentity(claims);
-        var principal = new ClaimsPrincipal(identity);
+        var identity = new ClaimsIdentity();
 
         // Act
-        service.NormalizeRoleClaims(principal);
+        service.NormalizeRoleClaims(tokenJson, identity);
 
         // Assert
-        var roleClaims = principal.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+        var roleClaims = identity.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
         Assert.That(roleClaims, Does.Contain("View"));
         Assert.That(roleClaims, Does.Contain("Edit"));
         Assert.That(roleClaims.Count, Is.EqualTo(2));
@@ -82,18 +77,13 @@ public class ClaimsNormalizationTests
             roles = new[] { "Admin", "User" }
         });
 
-        var claims = new List<Claim>
-        {
-            new Claim("id_token", tokenJson)
-        };
-        var identity = new ClaimsIdentity(claims);
-        var principal = new ClaimsPrincipal(identity);
+        var identity = new ClaimsIdentity();
 
         // Act
-        service.NormalizeRoleClaims(principal);
+        service.NormalizeRoleClaims(tokenJson, identity);
 
         // Assert
-        var roleClaims = principal.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+        var roleClaims = identity.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
         Assert.That(roleClaims, Does.Contain("Admin"));
         Assert.That(roleClaims, Does.Contain("User"));
     }
@@ -115,18 +105,13 @@ public class ClaimsNormalizationTests
             roles = new[] { "View" }
         });
 
-        var claims = new List<Claim>
-        {
-            new Claim("access_token", tokenJson)
-        };
-        var identity = new ClaimsIdentity(claims);
-        var principal = new ClaimsPrincipal(identity);
+        var identity = new ClaimsIdentity();
 
         // Act
-        service.NormalizeRoleClaims(principal);
+        service.NormalizeRoleClaims(tokenJson, identity);
 
         // Assert
-        var roleClaims = principal.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+        var roleClaims = identity.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
         Assert.That(roleClaims, Does.Contain("View"));
     }
 
@@ -147,18 +132,13 @@ public class ClaimsNormalizationTests
             realm_access = new { roles = new[] { "View" } }
         });
 
-        var claims = new List<Claim>
-        {
-            new Claim("id_token", tokenJson)
-        };
-        var identity = new ClaimsIdentity(claims);
-        var principal = new ClaimsPrincipal(identity);
+        var identity = new ClaimsIdentity();
 
         // Act - should not throw
-        service.NormalizeRoleClaims(principal);
+        service.NormalizeRoleClaims(tokenJson, identity);
 
         // Assert - no roles added
-        var roleClaims = principal.FindAll(ClaimTypes.Role);
+        var roleClaims = identity.FindAll(ClaimTypes.Role);
         Assert.That(roleClaims.Count, Is.EqualTo(0));
     }
 
@@ -179,19 +159,14 @@ public class ClaimsNormalizationTests
             realm_access = new { roles = new[] { "View", "Admin" } }
         });
 
-        var claims = new List<Claim>
-        {
-            new Claim("id_token", tokenJson)
-        };
-        var identity = new ClaimsIdentity(claims);
-        var principal = new ClaimsPrincipal(identity);
+        var identity = new ClaimsIdentity();
 
         // Act — call twice to simulate refresh
-        service.NormalizeRoleClaims(principal);
-        service.NormalizeRoleClaims(principal);
+        service.NormalizeRoleClaims(tokenJson, identity);
+        service.NormalizeRoleClaims(tokenJson, identity);
 
         // Assert — should still have exactly 2 role claims, not 4
-        var roleClaims = principal.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+        var roleClaims = identity.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
         Assert.That(roleClaims.Count, Is.EqualTo(2));
         Assert.That(roleClaims, Does.Contain("View"));
         Assert.That(roleClaims, Does.Contain("Admin"));
@@ -211,18 +186,13 @@ public class ClaimsNormalizationTests
 
         var tokenJson = JsonSerializer.Serialize(new { role = "Admin" });
 
-        var claims = new List<Claim>
-        {
-            new Claim("id_token", tokenJson)
-        };
-        var identity = new ClaimsIdentity(claims);
-        var principal = new ClaimsPrincipal(identity);
+        var identity = new ClaimsIdentity();
 
         // Act
-        service.NormalizeRoleClaims(principal);
+        service.NormalizeRoleClaims(tokenJson, identity);
 
         // Assert
-        var roleClaims = principal.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+        var roleClaims = identity.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
         Assert.That(roleClaims, Does.Contain("Admin"));
     }
 }

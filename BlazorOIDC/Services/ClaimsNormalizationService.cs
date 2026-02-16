@@ -24,31 +24,27 @@ public class ClaimsNormalizationService
     }
 
     /// <summary>
-    /// Extracts roles from the configured claim path in a token and adds them as ClaimTypes.Role claims
-    /// to the ClaimsPrincipal. Handles nested JSON via dot notation (e.g., "realm_access.roles").
+    /// Extracts roles from the configured claim path in a token JSON string and adds them
+    /// as ClaimTypes.Role claims to the ClaimsIdentity. Handles nested JSON via dot notation
+    /// (e.g., "realm_access.roles").
     /// </summary>
-    public void NormalizeRoleClaims(ClaimsPrincipal principal)
+    /// <param name="tokenJson">JWT token payload serialized as JSON</param>
+    /// <param name="identity">ClaimsIdentity to add role claims to</param>
+    public void NormalizeRoleClaims(string tokenJson, ClaimsIdentity identity)
     {
-        if (principal?.Identity is not ClaimsIdentity identity)
+        if (identity == null)
         {
-            _logger.LogWarning("ClaimsPrincipal or identity is null during claims normalization");
+            _logger.LogWarning("ClaimsIdentity is null during claims normalization");
             return;
         }
 
-        // Determine which token to extract roles from
-        Claim sourceClaim = _authConfig.RoleClaimSource switch
+        if (string.IsNullOrWhiteSpace(tokenJson))
         {
-            "AccessToken" => principal.FindFirst("access_token"),
-            _ => principal.FindFirst("id_token")
-        };
-
-        if (sourceClaim == null)
-        {
-            _logger.LogWarning("Could not find {RoleClaimSource} in claims", _authConfig.RoleClaimSource);
+            _logger.LogWarning("Token JSON is null or empty during claims normalization");
             return;
         }
 
-        var roles = ExtractRolesFromClaim(sourceClaim.Value);
+        var roles = ExtractRolesFromClaim(tokenJson);
 
         // Remove existing role claims to avoid duplicates on refresh
         foreach (var existing in identity.FindAll(ClaimTypes.Role).ToList())
